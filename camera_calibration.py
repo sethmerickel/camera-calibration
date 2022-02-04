@@ -111,12 +111,19 @@ class CsAxis:
 
 
 class CameraIntrinsics:
-    def __init__(self, fx: float, fy: float, px: float, py: float, s: float):
+    def __init__(self, 
+        fx: float, fy: float,
+        px: float, py: float, skew: float, 
+        pitch: float, nrows: int, ncols: int
+        ):
         self.fx = fx
         self.fy = fy
         self.px = px
         self.py = py
-        self.s  = s
+        self.s  = skew
+        self.pitch = pitch
+        self.nrows = nrows
+        self.ncols = ncols
 
     def getMatrix(self):
         fx = self.fx
@@ -170,17 +177,45 @@ def test(p: Point):
     p = normalize(p)
     print(p)
 
-center = Point(0, 0, 0)
-look = Point(0, 0, 1)
-up = Point(0, 1, 0)
-extrinsics = CameraExtrinsics.from_look_up(center, look, up)
-print(extrinsics)
 
-# fig = plt.figure()
-# ax = fig.gca(projection='3d')
-# #ax.set_aspect("auto")
+if __name__ == "__main__":
 
-# cs_axis = CsAxis()
-# cs_axis.plot()
+    from mpl_toolkits.basemap import Basemap
+    import matplotlib.pyplot as plt
+    import numpy as np
 
-# plt.show()
+    fig = plt.figure(figsize=(9,6))
+
+    # set perspective angle
+    lat_viewing_angle = 50
+    lon_viewing_angle = -73
+
+    # define color maps for water and land
+    ocean_map = (plt.get_cmap('ocean'))(210)
+    cmap = plt.get_cmap('gist_earth')
+
+    # call the basemap and use orthographic projection at viewing angle
+    m = Basemap(projection='ortho', 
+            lat_0=lat_viewing_angle, lon_0=lon_viewing_angle)    
+
+    # coastlines, map boundary, fill continents/water, fill ocean, draw countries
+    m.drawcoastlines()
+    m.drawmapboundary(fill_color=ocean_map)
+    m.fillcontinents(color=cmap(200),lake_color=ocean_map)
+    m.drawcountries()
+
+    # latitude/longitude line vectors
+    lat_line_range = [-90,90]
+    lat_lines = 8
+    lat_line_count = (lat_line_range[1]-lat_line_range[0])/lat_lines
+
+    merid_range = [-180,180]
+    merid_lines = 8
+    merid_count = (merid_range[1]-merid_range[0])/merid_lines
+
+    m.drawparallels(np.arange(lat_line_range[0],lat_line_range[1],lat_line_count))
+    m.drawmeridians(np.arange(merid_range[0],merid_range[1],merid_count))
+
+    # save figure at 150 dpi and show it
+    plt.savefig('orthographic_map_example_python.png',dpi=150,transparent=True)
+    plt.show()
