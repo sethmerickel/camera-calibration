@@ -1,115 +1,5 @@
-from cmath import sqrt
-from turtle import color
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
-import numpy as np
-
-import copy
-import math
-import warnings
-
-class Point:
-    def __init__(self, x, y, z, color='blue', marker='o'):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.color = color
-        self.marker = marker
-
-    @classmethod
-    def fromArray(cls, ary: np.array):
-        sz = ary.size
-        if sz != 3:
-            raise ValueError("ary should have size of 3")
-        return cls(ary[0], ary[1], ary[2])
-
-    def toArray(self):
-        return np.array([[self.x, self.y, self.z]]).T
-
-    def plot(self, ax):
-        ax.scatter(self.x, self.y, self.z, color=self.color, marker=self.marker)
-
-    def __add__(self, other):
-        if isinstance(other, Point):
-            p = Point(
-                self.x + other.x, self.y + other.y, self.z + other.z, 
-                self.color, self.marker)
-            return p
-        elif isinstance(other, tuple):
-            x, y, z = other
-            p = Point(
-                self.x + x, self.y + y, self.z + z, 
-                self.color, self.marker)
-            return p
-        
-    def __sub__(self, other):
-        p = Point(
-            self.x - other.x, self.y - other.y, self.z - other.z,
-            self.color, self.marker)
-        return p
-
-    def __mul__(self, s):
-        if type(s) == int or type(s) == float:
-            p = Point(s*self.x, s*self.y, s*self.z, self.color, self.marker)
-            return p
-
-    def __str__(self):
-        s = f"x: {self.x}\n" \
-            f"y: {self.y}\n" \
-            f"z: {self.z}\n" \
-            f"color: {self.color}\n" \
-            f"marker: {self.marker}\n"
-        return s
-
-
-def dot(p1: Point, p2: Point) -> float:
-    return p1.x*p2.x + p1.y*p2.y + p1.z*p2.z
-
-
-def norm(p: Point) -> float:
-    return math.sqrt(dot(p,p))
-
-
-def normalize(p: Point) -> Point:
-    n = norm(p)
-    result = copy.copy(p)
-    return result* (1./n)
-
-
-def cross(p1: Point, p2: Point) -> Point:
-    x = p1.y*p2.z - p1.z*p2.y
-    y = p1.z*p2.x - p1.x*p2.z
-    z = p1.x*p2.y - p1.y*p2.x
-    return Point(x, y, z)
-
-
-class Line:
-    def __init__(self, p1, p2, color='blue'):
-        self.p1 = p1
-        self.p2 = p2
-        self.color = color
-
-    def plot(self, ax):
-        xs = [self.p1.x, self.p2.x]
-        ys = [self.p1.y, self.p2.y]
-        zs = [self.p1.z, self.p2.z]
-        ax.plot(xs, ys, zs, color=self.color)
-
-
-class CsAxis:
-    def __init__(self, origin=Point(0,0,0), axis_length=1) :
-        self.origin = origin
-        self.axis_length = axis_length
-        self.x_axis = Line(origin, origin + Point(1, 0, 0)*axis_length, 'blue')
-        self.y_axis = Line(origin, origin + Point(0, 1, 0)*axis_length, 'green')
-        self.z_axis = Line(origin, origin + Point(0, 0, 1)*axis_length, 'red')
-
-    def plot(self, ax):
-        self.x_axis.plot(ax)
-        self.y_axis.plot(ax)
-        self.z_axis.plot(ax)
-
-
+from tkinter.messagebox import RETRY
+from geom import *
 class CameraIntrinsics:
     def __init__(self, 
         fx: float, fy: float,
@@ -169,6 +59,51 @@ class CameraExtrinsics:
         return s
 
 
+class SensorModel:
+    def __init__(self, s: Point, vel: Point, p: Point, intr: CameraIntrinsics):
+        '''Inputs:
+                s -> spacecraft position (ecef)
+                linear vel (ecef) -> spacecraft velocity
+                p -> boresight (ecef)
+        '''
+        self.s = s
+        self.vel = vel
+        self.p = p
+        self.intr = intr
+        self.az, self.el = self.lookat(p)
+
+
+    def getTransformToSC(self) -> np.array():
+        z = normalize(-self.s)
+        y = cross(z, self.v)
+        x = cross(y, z)
+        Rsc = np.zeros((3,3))
+        Rsc[:,0] = x.toArray().T
+        Rsc[:,1] = y.toArray().T
+        Rsc[:,2] = z.toArray().T
+        return Rsc
+
+
+    def lookat(self, gp: Point) -> tuple[float, float]:
+        # Get transform to SC frame
+        Rsc = self.getTransformToSC()
+
+        # get pointing vector
+        l = normalize(self.p - self.s)
+
+        # get l in SC CS
+        lsc = Rsc*l.toArray().T
+
+        # get az el
+        az = math.atan2(lsc.y, lsc.x)
+        el = math.acos(lsc.z)
+        return (az, el)
+        
+
+    def g2i(self, gp: Point) -> np.array():
+        Rsc = self.getTransformToSC()
+
+
 class Camera:
     def __init__(self, center):
         pass
@@ -179,43 +114,5 @@ def test(p: Point):
 
 
 if __name__ == "__main__":
+    pass
 
-    from mpl_toolkits.basemap import Basemap
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    fig = plt.figure(figsize=(9,6))
-
-    # set perspective angle
-    lat_viewing_angle = 50
-    lon_viewing_angle = -73
-
-    # define color maps for water and land
-    ocean_map = (plt.get_cmap('ocean'))(210)
-    cmap = plt.get_cmap('gist_earth')
-
-    # call the basemap and use orthographic projection at viewing angle
-    m = Basemap(projection='ortho', 
-            lat_0=lat_viewing_angle, lon_0=lon_viewing_angle)    
-
-    # coastlines, map boundary, fill continents/water, fill ocean, draw countries
-    m.drawcoastlines()
-    m.drawmapboundary(fill_color=ocean_map)
-    m.fillcontinents(color=cmap(200),lake_color=ocean_map)
-    m.drawcountries()
-
-    # latitude/longitude line vectors
-    lat_line_range = [-90,90]
-    lat_lines = 8
-    lat_line_count = (lat_line_range[1]-lat_line_range[0])/lat_lines
-
-    merid_range = [-180,180]
-    merid_lines = 8
-    merid_count = (merid_range[1]-merid_range[0])/merid_lines
-
-    m.drawparallels(np.arange(lat_line_range[0],lat_line_range[1],lat_line_count))
-    m.drawmeridians(np.arange(merid_range[0],merid_range[1],merid_count))
-
-    # save figure at 150 dpi and show it
-    plt.savefig('orthographic_map_example_python.png',dpi=150,transparent=True)
-    plt.show()
