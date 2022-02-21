@@ -1,5 +1,5 @@
 from geom import *
-from utils import *
+import utils
 
 # class CameraIntrinsics:
 #     def __init__(self, 
