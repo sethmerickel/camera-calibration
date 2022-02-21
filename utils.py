@@ -1,5 +1,6 @@
-from asyncio import constants
 import math
+
+import numpy as np
 
 class Constants:
     URAD2RAD = 10**(-6)
@@ -61,5 +62,44 @@ def lla2xyz(lat: float, lon: float, h_el: float) -> tuple[float, float, float]:
     return (x, y, z)
 
 
+def rotationX(theta):
+    '''
+    theta -> rotation about x axis [radians]
+    returns matrix to rotate a vector about x axis
+    '''
+    s = np.sin(theta)
+    c = np.cos(theta)
+    R = np.array([
+        [1,  0,  0],
+        [0,  c, -s], 
+        [0,  s,  c]])
+    return R
+    
 
+def rotationY(theta):
+    '''
+    theta -> rotation about y axis [radians]
+    returns matrix to rotate a vector about y axis
+    '''
+    s = np.sin(theta)
+    c = np.cos(theta)
+    R = np.array([
+        [c,   0,  s],
+        [0,   1,  0], 
+        [-s,  0,  c]])
+    return R
+
+
+def rotationZ(theta):
+    '''
+    theta -> rotation about z axis [radians]
+    returns matrix to rotate a vector about z axis
+    '''
+    s = np.sin(theta)
+    c = np.cos(theta)
+    R = np.array([
+        [c, -s,  0],
+        [s,  c,  0], 
+        [0,  0,  1]])
+    return R
 

@@ -1,34 +1,66 @@
-from tkinter.messagebox import RETRY
 from geom import *
+from utils import *
+
+# class CameraIntrinsics:
+#     def __init__(self, 
+#         fx: float, fy: float,
+#         px: float, py: float, skew: float, 
+#         pitch: float, nrows: int, ncols: int
+#         ):
+#         self.fx = fx
+#         self.fy = fy
+#         self.px = px
+#         self.py = py
+#         self.s  = skew
+#         self.pitch = pitch
+#         self.nrows = nrows
+#         self.ncols = ncols
+
+#     def getMatrix(self):
+#         fx = self.fx
+#         fy = self.fy
+#         px = self.px
+#         py = self.py
+#         s  = self.s
+#         return np.array(
+#             [
+#                 [fx, s, px],
+#                 [0, fy, py],
+#                 [0,  0, 1.0]
+#             ])
+
 class CameraIntrinsics:
-    def __init__(self, 
-        fx: float, fy: float,
-        px: float, py: float, skew: float, 
-        pitch: float, nrows: int, ncols: int
-        ):
-        self.fx = fx
-        self.fy = fy
-        self.px = px
-        self.py = py
-        self.s  = skew
-        self.pitch = pitch
-        self.nrows = nrows
-        self.ncols = ncols
 
-    def getMatrix(self):
-        fx = self.fx
-        fy = self.fy
-        px = self.px
-        py = self.py
-        s  = self.s
-        return np.array(
-            [
-                [fx, s, px],
-                [0, fy, py],
-                [0,  0, 1.0]
-            ])
-        
+    def __init__(self,
+        f: float, px: float, py: float, pitch: float,
+        image_width: int, image_height: int,
+        k1: float = 0, k2: float = 0, k3: float = 0,
+        p1: float = 0, p2: float = 0):
 
+        self.f     = f # focal length [mm]
+        self.px    = px # principle point offset x [pixels]
+        self.py    = py # principle point offset y [pixels]
+        self.pitch = pitch # pitch [mm]
+        self.k1    = k1 # radial distortion
+        self.k2    = k2 # radial distortion
+        self.k3    = k3 # radial distortion
+        self.p1    = p1 # tangential distortion
+        self.p2    = p2 # tangential distortion
+
+    def project(self, theta_x: float, theta_y: float) -> tuple[float, float]:
+        '''
+        theta_x = tangential field angle in the z-x plane [radians]
+        theta_y = tangential field angle in the z-y plane [radians]
+        '''
+        x = -self.f * math.tan(theta_x)
+        y = -self.f * math.tan(theta_y)
+        return (x, y)
+
+    def getRadialDistortion(self):
+        pass
+
+    def getTangentialDistortion(self):
+        pass
 class CameraExtrinsics:
     def __init__(self, R: np.array, t: np.array):
         shape = R.shape
@@ -70,10 +102,8 @@ class SensorModel:
         self.vel = vel
         self.p = p
         self.intr = intr
-        self.az, self.el = self.lookat(p)
 
-
-    def getTransformToSC(self) -> np.array():
+    def ecefToSc(self) -> np.array():
         z = normalize(-self.s)
         y = cross(z, self.v)
         x = cross(y, z)
@@ -83,34 +113,56 @@ class SensorModel:
         Rsc[:,2] = z.toArray().T
         return Rsc
 
-
-    def lookat(self, gp: Point) -> tuple[float, float]:
+    def getAzEl(self, gp: Point) -> tuple[float, float]:
         # Get transform to SC frame
-        Rsc = self.getTransformToSC()
+        Rsc = self.ecefToSc()
 
-        # get pointing vector
+        # get pointing (boresight) vector
         l = normalize(self.p - self.s)
 
         # get l in SC CS
-        lsc = Rsc*l.toArray().T
+        lsc = Rsc @ l.toArray().T
 
         # get az el
         az = math.atan2(lsc.y, lsc.x)
         el = math.acos(lsc.z)
         return (az, el)
-        
 
-    def g2i(self, gp: Point) -> np.array():
-        Rsc = self.getTransformToSC()
+    @staticmethod
+    def getAzReflectionMatrix(az: float) -> np.array:
+        '''
+        az -> azimuth angle [radians]
+        returns reflection matrix for azimuth mirror in the instrument reference frame
+        '''
+        n_az = np.array([[1/np.sqrt(2), 0, -1/np.sqrt(2)]])
+        Rz = utils.rotationZ(az)
+        n_az = Rz @ n_az
+        M = np.eye(3) - 2 * (n_az @ n_az.T)
+        return M
 
+    @staticmethod
+    def getElReflectionMatrix(el: float, az: float) -> np.array:
+        '''
+        az -> azimuth angle [radians]
+        el -> elevation angle [radians]
+        returns reflection matrix for elevation mirror in the instrument reference frame
+        '''
+        n_el = np.array([[-1/np.sqrt(2), 0, 1/sqrt(2)]])
+        Rz = utils.rotationZ(az)
+        Rx = utils.rotationX(el)
+        n_el = Rx @ Rz @ n_el
+        M = np.eye(3) - 2 * (n_el @ n_el.T)
+        return M
 
-class Camera:
-    def __init__(self, center):
+    @staticmethod
+    def getTangentialAngles(i: Point) -> tuple[float, float]:
         pass
-
-def test(p: Point):
-    p = normalize(p)
-    print(p)
+        
+    def g2i(self, gp: Point) -> np.array():
+        Rsc = self.ecefToSc()
+        (az, el) = self.getAzEl()
+        Maz = self.getAzReflectionMatrix(az)
+        Mel = self.getElReflectionMatrix(el)
 
 
 if __name__ == "__main__":

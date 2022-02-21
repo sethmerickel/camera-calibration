@@ -16,6 +16,18 @@ class Point:
         self.marker = marker
 
     @classmethod
+    def xHat(cls):
+        return cls(1.0, 0.0, 0.0)
+
+    @classmethod
+    def yHat(cls):
+        return cls(0.0, 1.0, 0.0)
+
+    @classmethod
+    def zHat(cls):
+        return cls(0.0, 0.0, 1.0)
+
+    @classmethod
     def fromArray(cls, ary: np.array):
         sz = ary.size
         if sz != 3:
