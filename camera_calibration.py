@@ -92,20 +92,21 @@ class CameraExtrinsics:
 
 
 class SensorModel:
-    def __init__(self, s: Point, vel: Point, p: Point, intr: CameraIntrinsics):
+    def __init__(self, sc_pos: Point, sc_vel: Point, intr: CameraIntrinsics):
         '''Inputs:
                 s -> spacecraft position (ecef)
                 linear vel (ecef) -> spacecraft velocity
                 p -> boresight (ecef)
         '''
-        self.s = s
-        self.vel = vel
-        self.p = p
+        self.sc_pos = sc_pos
+        self.sc_vel = sc_vel
         self.intr = intr
+        self.az = 0.0
+        self.el = 0.0
 
     def ecefToSc(self) -> np.array():
-        z = normalize(-self.s)
-        y = cross(z, self.v)
+        z = normalize(-self.sc_pos)
+        y = cross(z, self.sc_vel)
         x = cross(y, z)
         Rsc = np.zeros((3,3))
         Rsc[:,0] = x.toArray().T
@@ -113,12 +114,28 @@ class SensorModel:
         Rsc[:,2] = z.toArray().T
         return Rsc
 
+    
+    def lookAt(self, gp: Point):
+        # Compute transform from ECEF to SRF
+        Rsc = self.ecefToSc()
+
+        # Compute boresight vector
+        l = normalize(gp - self.sc_pos)
+
+        # Transform l to SRF
+        lsc = Rsc @ l.toArray().T
+
+        # Compute az el angles
+        self.az = math.atan2(lsc.y, lsc.x)
+        self.el = math.acos(lsc.z)
+        
+
     def getAzEl(self, gp: Point) -> tuple[float, float]:
         # Get transform to SC frame
         Rsc = self.ecefToSc()
 
         # get pointing (boresight) vector
-        l = normalize(self.p - self.s)
+        l = normalize(self.p - self.sc_pos)
 
         # get l in SC CS
         lsc = Rsc @ l.toArray().T
@@ -158,11 +175,18 @@ class SensorModel:
     def getTangentialAngles(i: Point) -> tuple[float, float]:
         pass
         
-    def g2i(self, gp: Point) -> np.array():
+    def g2i(self, gp: Point) -> tuple[float, float]:
+        '''
+        gp -> ground point in ecef [m]
+        returns image point upper left [pixel]
+        '''
+
         Rsc = self.ecefToSc()
         (az, el) = self.getAzEl()
         Maz = self.getAzReflectionMatrix(az)
         Mel = self.getElReflectionMatrix(el)
+
+        l = 
 
 
 if __name__ == "__main__":
