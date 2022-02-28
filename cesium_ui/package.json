@@ -1,0 +1,21 @@
+{
+  "name": "cesium-ui",
+  "version": "1.0.0",
+  "description": "A simple JavaScript app with with Cesium, the open-source WebGL virtual globe and map engine.",
+  "license": "MIT",
+  "dependencies": {
+    "cesium": "^1.90.0",
+    "compression": "^1.6.2",
+    "express": "^4.15",
+    "request": "^2.79.0",
+    "yargs": "^8.0.1"
+  },
+  "engines": {
+    "node": "0.10.x"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": ""
+}
